@@ -3,7 +3,8 @@ import Garment from './Garment';
 import Icon from './Icon';
 import { navigate } from '../lib/router';
 import { useStore } from '../lib/store';
-import { BRAND, money } from '../data/catalog';
+import { money } from '../data/catalog';
+import { useBrand } from '../lib/db';
 
 export function CodeBox() {
   const { code, applyCode, removeCode } = useStore();
@@ -73,8 +74,9 @@ export function Line({ item, compact = false }) {
 
 export default function CartDrawer() {
   const { items, cartOpen, setCartOpen, totals } = useStore();
-  const left = Math.max(0, BRAND.freeShippingOver - totals.after);
-  const pct = Math.min(100, (totals.after / BRAND.freeShippingOver) * 100);
+  const brand = useBrand();
+  const left = Math.max(0, brand.freeShippingOver - totals.after);
+  const pct = Math.min(100, (totals.after / brand.freeShippingOver) * 100);
   const close = () => setCartOpen(false);
 
   return (

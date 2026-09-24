@@ -3,10 +3,12 @@ import Icon from '../Components/Icon';
 import { OrderTracker } from '../Components/Tracker';
 import { Link } from '../lib/router';
 import { trackOrder } from '../lib/api';
-import { BRAND, money } from '../data/catalog';
+import { money } from '../data/catalog';
+import { useBrand } from '../lib/db';
 
 /** Confirmation screen shown right after placing an order. */
 export default function Order({ number }) {
+  const brand = useBrand();
   const [order, setOrder] = useState(null);
   useEffect(() => { trackOrder(number).then(setOrder); }, [number]);
 
@@ -34,7 +36,7 @@ export default function Order({ number }) {
         )}
 
         <div className="mt-9 flex flex-wrap justify-center gap-3">
-          <a href={`https://wa.me/${BRAND.whatsapp}?text=${encodeURIComponent(`Hi FIT ERA, my order number is ${number}`)}`} target="_blank" rel="noreferrer" className="btn btn-rose"><Icon name="chat" size={17} /> Message us on WhatsApp</a>
+          <a href={`https://wa.me/${brand.whatsapp}?text=${encodeURIComponent(`Hi FIT ERA, my order number is ${number}`)}`} target="_blank" rel="noreferrer" className="btn btn-rose"><Icon name="chat" size={17} /> Message us on WhatsApp</a>
           <Link to="/shop/basics" className="btn btn-glass">Keep shopping</Link>
         </div>
       </div>

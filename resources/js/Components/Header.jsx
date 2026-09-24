@@ -3,7 +3,8 @@ import Icon from './Icon';
 import { Logo } from './ui';
 import { Link, goSection, navigate } from '../lib/router';
 import { useStore } from '../lib/store';
-import { BRAND, CATEGORIES } from '../data/catalog';
+import { useAdminAuth } from '../lib/auth';
+import { useBrand, useCategories } from '../lib/db';
 
 const SOCIALS = [
   { id: 'facebook', label: 'Facebook' },
@@ -13,11 +14,12 @@ const SOCIALS = [
 ];
 
 export function Socials({ className = '', size = 18, bare = false }) {
+  const brand = useBrand();
   return (
     <div className={`flex items-center gap-0.5 ${className}`}>
       {SOCIALS.map((s) => (
         <a
-          key={s.id} href={BRAND.socials[s.id]} target="_blank" rel="noreferrer" aria-label={s.label} title={s.label}
+          key={s.id} href={brand.socials?.[s.id] || '#'} target="_blank" rel="noreferrer" aria-label={s.label} title={s.label}
           className={bare ? 'icon-btn !w-10 !h-10' : 'icon-btn !w-9 !h-9'}
         >
           <Icon name={s.id} size={size} />
@@ -29,6 +31,8 @@ export function Socials({ className = '', size = 18, bare = false }) {
 
 export default function Header({ route }) {
   const { theme, toggleTheme, totals, setCartOpen } = useStore();
+  const { authed } = useAdminAuth();
+  const categories = useCategories();
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
   const [shop, setShop] = useState(false);
@@ -72,7 +76,7 @@ export default function Header({ route }) {
                 <Link to="/shop/all" className="flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm hover:bg-[color-mix(in_srgb,var(--fg)_8%,transparent)] transition-colors">
                   All products <Icon name="right" size={14} />
                 </Link>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <Link key={c.id} to={`/shop/${c.id}`} className="group flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm hover:bg-[color-mix(in_srgb,var(--fg)_8%,transparent)] transition-colors">
                     <span>{c.name}{c.primary && <span className="ml-2 text-[10px] rounded-full bg-rose/90 text-white px-2 py-0.5">Main</span>}</span>
                     <Icon name="right" size={14} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
@@ -113,6 +117,14 @@ export default function Header({ route }) {
             <Icon name={menu ? 'close' : 'menu'} />
           </button>
         </div>
+
+        {/* dashboard access — subtle on purpose; hide/remove this link in production and just visit /admin directly */}
+        <Link
+          to="/admin" aria-label={authed ? 'Open dashboard' : 'Dashboard login'} title={authed ? 'Dashboard' : 'Dashboard login'}
+          className="icon-btn border border-line opacity-40 hover:opacity-100 bg-[var(--glass)] backdrop-blur"
+        >
+          <Icon name="gear" size={17} />
+        </Link>
       </div>
 
       {/* mobile menu */}
@@ -121,7 +133,7 @@ export default function Header({ route }) {
           <div className="glass glass-strong rounded-4xl mt-2.5 p-3">
             {[
               ['Home', () => navigate('/')],
-              ...CATEGORIES.map((c) => [c.name, () => navigate(`/shop/${c.id}`)]),
+              ...categories.map((c) => [c.name, () => navigate(`/shop/${c.id}`)]),
               ['Bundles', () => { setMenu(false); goSection('bundles'); }],
               ['Size guide', () => { setMenu(false); goSection('sizes'); }],
               ['Track order', () => navigate('/track')],

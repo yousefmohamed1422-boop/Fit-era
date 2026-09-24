@@ -5,7 +5,8 @@ import ProductCard from '../Components/ProductCard';
 import { Reveal, Stars } from '../Components/ui';
 import { Link, goSection, navigate } from '../lib/router';
 import { useStore } from '../lib/store';
-import { BRAND, CATEGORIES, colorById, money } from '../data/catalog';
+import { colorById, money } from '../data/catalog';
+import { useBrand, useCategories } from '../lib/db';
 
 const FEATURES = [
   { icon: 'leaf', t: 'Soft & breathable', d: 'Gentle on skin, comfortable all day.' },
@@ -16,13 +17,15 @@ const FEATURES = [
 
 export default function Product({ product: p, related = [] }) {
   const { add, setTint, wish, toggleWish, toast } = useStore();
+  const brand = useBrand();
+  const categories = useCategories();
   const [colorId, setColorId] = useState(p.colors[0]);
   const [size, setSize] = useState(null);
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const c = colorById(colorId);
-  const cat = CATEGORIES.find((x) => x.id === p.category);
+  const cat = categories.find((x) => x.id === p.category);
   const liked = wish.includes(p.id);
   const idx = p.colors.indexOf(colorId);
 
@@ -151,7 +154,7 @@ export default function Product({ product: p, related = [] }) {
               <p className="font-medium text-sm flex items-center gap-2"><Icon name="truck" size={18} /> Shipping</p>
               <ul className="mt-3 space-y-1.5 text-[13.5px] text-muted list-disc pl-5">
                 <li>Delivery in 2–4 business days across Egypt.</li>
-                <li>Free delivery over {money(BRAND.freeShippingOver)}.</li>
+                <li>Free delivery over {money(brand.freeShippingOver)}.</li>
                 <li>Pay by cash on delivery, card or mobile wallet.</li>
               </ul>
             </div>

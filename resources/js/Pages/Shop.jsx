@@ -1,14 +1,15 @@
 import ProductCard from '../Components/ProductCard';
 import { Reveal } from '../Components/ui';
 import { navigate } from '../lib/router';
-import { CATEGORIES } from '../data/catalog';
 import { useEffect } from 'react';
 import { useStore } from '../lib/store';
 import { colorById } from '../data/catalog';
+import { useCategories } from '../lib/db';
 
 export default function Shop({ products, category = 'all' }) {
   const { setTint } = useStore();
-  const cat = CATEGORIES.find((c) => c.id === category);
+  const categories = useCategories();
+  const cat = categories.find((c) => c.id === category);
   const list = category === 'all' ? products : products.filter((p) => p.category === category);
   useEffect(() => { if (cat) setTint(colorById(cat.color).tint); }, [category]); // eslint-disable-line
 
@@ -21,7 +22,7 @@ export default function Shop({ products, category = 'all' }) {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-10" role="tablist" aria-label="Categories">
-        {[{ id: 'all', name: 'All' }, ...CATEGORIES].map((c) => (
+        {[{ id: 'all', name: 'All' }, ...categories].map((c) => (
           <button key={c.id} role="tab" aria-selected={category === c.id} aria-pressed={category === c.id} className="chip !px-5 !py-2.5" onClick={() => navigate(`/shop/${c.id}`)}>
             {c.name}
           </button>

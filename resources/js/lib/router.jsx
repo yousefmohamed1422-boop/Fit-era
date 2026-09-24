@@ -11,13 +11,14 @@ import { useEffect, useState } from 'react';
 
 export function parseRoute(hash) {
   const path = (hash || '').replace(/^#/, '') || '/';
-  const [, a, b] = path.split('/');
+  const [a, b, c] = path.split('/').filter(Boolean);
   switch (a) {
     case 'shop': return { name: 'shop', category: b || 'all', key: path };
     case 'product': return { name: 'product', slug: b, key: path };
     case 'checkout': return { name: 'checkout', key: path };
     case 'order': return { name: 'order', number: b, key: path };
     case 'track': return { name: 'track', number: b, key: path };
+    case 'admin': return { name: 'admin', sub: b || 'overview', id: c, key: path };
     default: return { name: 'home', key: '/' };
   }
 }

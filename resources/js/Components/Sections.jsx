@@ -7,7 +7,8 @@ import { Socials } from './Header';
 import { Logo, Reveal, SectionHead, spot } from './ui';
 import { Link, goSection } from '../lib/router';
 import { useStore } from '../lib/store';
-import { BRAND, BUNDLES, CATEGORIES, COLORS, PRODUCTS, SIZE_CHARTS, colorById, money } from '../data/catalog';
+import { COLORS, SIZE_CHARTS, colorById, money } from '../data/catalog';
+import { useBrand, useCategories, useBundles } from '../lib/db';
 
 /* ───────────── Marquee ───────────── */
 export function Marquee() {
@@ -103,7 +104,8 @@ function CategoryTile({ cat, className = '', big = false, wide = false }) {
 }
 
 export function Categories() {
-  const [basics, ...rest] = CATEGORIES;
+  const categories = useCategories();
+  const [basics, ...rest] = categories;
   return (
     <section className="max-w-[88rem] mx-auto px-4 sm:px-8 pt-16 sm:pt-24">
       <Reveal><SectionHead title="Shop by category" sub="Start with Basics, then find your fit in Teen Edge, Men and Women." /></Reveal>
@@ -118,7 +120,7 @@ export function Categories() {
 }
 
 /* ───────────── Featured ───────────── */
-export function Featured({ products = PRODUCTS }) {
+export function Featured({ products }) {
   const items = products.filter((p) => p.category === 'basics');
   return (
     <section className="max-w-[88rem] mx-auto px-4 sm:px-8 pt-24 sm:pt-32">
@@ -139,10 +141,12 @@ export function Featured({ products = PRODUCTS }) {
 /* ───────────── Discount banner (mid-page) ───────────── */
 export function DiscountBanner() {
   const { toast } = useStore();
+  const brand = useBrand();
+  const promo = brand.promo || { title: 'Get 15% off your fit', text: '', code: 'FIT15' };
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText('FIT15'); } catch { /* clipboard blocked */ }
-    setCopied(true); toast('Code FIT15 copied'); setTimeout(() => setCopied(false), 1800);
+    try { await navigator.clipboard.writeText(promo.code); } catch { /* clipboard blocked */ }
+    setCopied(true); toast(`Code ${promo.code} copied`); setTimeout(() => setCopied(false), 1800);
   };
   return (
     <section className="max-w-[88rem] mx-auto px-4 sm:px-8 pt-24 sm:pt-32">
@@ -152,11 +156,11 @@ export function DiscountBanner() {
           <span className="absolute top-0 left-0 h-full w-1/5 bg-white/30 blur-md pointer-events-none" style={{ animation: 'sweep 5.5s ease-in-out infinite' }} />
           <div className="relative">
             <p className="inline-flex items-center gap-2 rounded-full bg-fg text-bg text-[12px] font-medium px-3.5 py-1.5"><Icon name="tag" size={14} /> This week only</p>
-            <h2 className="font-display h-lg mt-4">Get 15% off your fit</h2>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed">Use the code at checkout on any order. Bundles already save you more, and the code stacks on top.</p>
+            <h2 className="font-display h-lg mt-4">{promo.title}</h2>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed">{promo.text}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <button onClick={copy} className="btn btn-glass !py-3 font-mono tracking-[.2em] text-[15px]" aria-label="Copy code FIT15">
-                FIT15 <Icon name={copied ? 'check' : 'copy'} size={16} className={copied ? 'text-rose pop' : ''} />
+              <button onClick={copy} className="btn btn-glass !py-3 font-mono tracking-[.2em] text-[15px]" aria-label={`Copy code ${promo.code}`}>
+                {promo.code} <Icon name={copied ? 'check' : 'copy'} size={16} className={copied ? 'text-rose pop' : ''} />
               </button>
               <Link to="/shop/basics" className="btn btn-primary">Shop now</Link>
             </div>
@@ -224,11 +228,12 @@ function BundleCard({ b }) {
 }
 
 export function Bundles() {
+  const bundles = useBundles();
   return (
     <section id="bundles" className="max-w-[88rem] mx-auto px-4 sm:px-8 pt-24 sm:pt-32 scroll-mt-24">
       <Reveal><SectionHead title="Bundles" sub="Build your rotation and save. Pick one size and we pack the set." /></Reveal>
       <div className="grid gap-4 md:grid-cols-3">
-        {BUNDLES.map((b, i) => <Reveal key={b.id} delay={i * 100}><BundleCard b={b} /></Reveal>)}
+        {bundles.map((b, i) => <Reveal key={b.id} delay={i * 100}><BundleCard b={b} /></Reveal>)}
       </div>
     </section>
   );
@@ -333,6 +338,8 @@ export function TrackSection() {
 
 /* ───────────── Footer ───────────── */
 export function Footer() {
+  const brand = useBrand();
+  const categories = useCategories();
   return (
     <footer className="mt-28 sm:mt-40 px-3 sm:px-5 pb-5">
       <div className="glass rounded-5xl max-w-[88rem] mx-auto px-6 sm:px-12 py-12">
@@ -345,7 +352,7 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-sm mb-4">Shop</h4>
             <ul className="space-y-2.5 text-[14px] text-muted">
-              {CATEGORIES.map((c) => <li key={c.id}><Link to={`/shop/${c.id}`} className="hover:text-fg transition-colors">{c.name}</Link></li>)}
+              {categories.map((c) => <li key={c.id}><Link to={`/shop/${c.id}`} className="hover:text-fg transition-colors">{c.name}</Link></li>)}
               <li><button onClick={() => goSection('bundles')} className="hover:text-fg transition-colors">Bundles</button></li>
             </ul>
           </div>
@@ -354,8 +361,8 @@ export function Footer() {
             <ul className="space-y-2.5 text-[14px] text-muted">
               <li><button onClick={() => goSection('sizes')} className="hover:text-fg transition-colors">Size guide</button></li>
               <li><Link to="/track" className="hover:text-fg transition-colors">Track your order</Link></li>
-              <li><a href={`https://wa.me/${BRAND.whatsapp}`} target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">WhatsApp us</a></li>
-              <li><a href={`mailto:${BRAND.email}`} className="hover:text-fg transition-colors">{BRAND.email}</a></li>
+              <li><a href={`https://wa.me/${brand.whatsapp}`} target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">WhatsApp us</a></li>
+              <li><a href={`mailto:${brand.email}`} className="hover:text-fg transition-colors">{brand.email}</a></li>
             </ul>
           </div>
           <div>
@@ -368,7 +375,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-12 pt-6 border-t border-line flex flex-wrap items-center justify-between gap-3 text-[13px] text-muted">
-          <p>© {new Date().getFullYear()} FIT ERA. {BRAND.tagline}</p>
+          <p>© {new Date().getFullYear()} FIT ERA. {brand.tagline}</p>
           <p className="font-display text-base tracking-wider text-fg">Fit. Comfort. Style.</p>
         </div>
       </div>

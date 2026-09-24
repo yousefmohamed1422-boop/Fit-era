@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { BRAND, DISCOUNT_CODES } from '../data/catalog';
+import { useBrand, getDiscounts } from './db';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -10,6 +10,7 @@ const storage = {
 };
 
 export function StoreProvider({ children }) {
+  const brand = useBrand();
   /* ── theme ── */
   const [theme, setTheme] = useState(() =>
     storage.get('fe-theme', null) ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
@@ -73,10 +74,11 @@ export function StoreProvider({ children }) {
 
   const applyCode = useCallback((raw) => {
     const c = (raw || '').trim().toUpperCase();
+    const table = getDiscounts();
     if (!c) return { ok: false, msg: 'Enter a code first.' };
-    if (!DISCOUNT_CODES[c]) return { ok: false, msg: 'That code isn’t valid.' };
-    setCode({ code: c, pct: DISCOUNT_CODES[c] });
-    return { ok: true, msg: `${DISCOUNT_CODES[c]}% off applied.` };
+    if (!table[c]) return { ok: false, msg: 'That code isn’t valid.' };
+    setCode({ code: c, pct: table[c] });
+    return { ok: true, msg: `${table[c]}% off applied.` };
   }, []);
   const removeCode = useCallback(() => setCode(null), []);
 
@@ -85,9 +87,9 @@ export function StoreProvider({ children }) {
     const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
     const discount = code ? Math.round((subtotal * code.pct) / 100) : 0;
     const after = subtotal - discount;
-    const shipping = items.length === 0 || after >= BRAND.freeShippingOver ? 0 : BRAND.shippingFee;
+    const shipping = items.length === 0 || after >= brand.freeShippingOver ? 0 : brand.shippingFee;
     return { count, subtotal, discount, shipping, total: after + shipping, after };
-  }, [items, code]);
+  }, [items, code, brand]);
 
   const value = {
     theme, toggleTheme, tint, setTint, toast, toastMsg,

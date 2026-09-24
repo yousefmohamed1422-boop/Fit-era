@@ -30,6 +30,21 @@ Rebuild after edits: `npm install && node build-preview.js`
    - `trackOrder` → `GET /orders/{number}?phone=`
 8. Replace `data/catalog.js` with data from your DB (same field names).
 
+## Dashboard (/admin)
+- Open `#/admin` (there's also a small gear icon next to the cart on every page).
+- Default login: `admin@fitera.com` / `fitera2026` — change both from Settings once you're in.
+- Products, categories, bundles, discount codes, orders and brand settings (WhatsApp, socials,
+  shipping, the homepage discount banner) are all editable there, and changes show up on the site
+  immediately — no rebuild needed, because both dashboard and site read from `lib/db.js`.
+- `lib/db.js` is a localStorage stand-in for your database, seeded once from `data/catalog.js`.
+  In Laravel, replace each function in that file with a real API call (`saveProduct` → `POST /api/products`,
+  etc.) — the dashboard pages themselves don't need to change.
+- `lib/auth.jsx` is a demo session check against `db.verifyAdmin`. Replace it with real Laravel auth
+  (a proper `/admin/login` route + guarded middleware) before this goes live — as built, anyone who
+  knows the login can sign in from any browser since the password just lives in localStorage.
+- The gear icon that links to `/admin` is intentionally subtle but still visible to every visitor.
+  Remove it from `Components/Header.jsx` once you're ready to launch, and just open `/admin` directly by URL.
+
 ## Things to edit
 - `data/catalog.js`: WhatsApp number, socials, email, prices, sizes, size charts, discount codes, shipping fee.
 - Real product photos: add `image: '/img/x.jpg'` to a product — cards and product page use it instead of the SVG.

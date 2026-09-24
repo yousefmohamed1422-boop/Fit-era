@@ -31,6 +31,15 @@ export async function placeOrder(payload) {
   return order;
 }
 
+/** Dashboard helpers — list every order and let staff move its status forward. */
+export function listOrders() {
+  return [DEMO['FE-1042'], ...Object.values(read())];
+}
+export function updateOrderStep(number, step) {
+  const all = read();
+  if (all[number]) { all[number].step = step; write(all); }
+}
+
 export async function trackOrder(number, phone) {
   await delay(650);
   const n = (number || '').trim().toUpperCase().replace(/^#/, '');

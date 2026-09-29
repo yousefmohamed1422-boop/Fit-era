@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import Garment from './Garment';
 import Icon from './Icon';
 import ProductCard from './ProductCard';
@@ -119,24 +119,267 @@ export function Categories() {
   );
 }
 
-/* ───────────── Featured ───────────── */
-export function Featured({ products }) {
-  const items = products.filter((p) => p.category === 'basics');
+/* ───────────── Best Seller Seamless Circular Infinite Slider ───────────── */
+export function Featured({ products = [] }) {
+  // Select top best sellers
+  const items = useMemo(() => {
+    if (!products || !products.length) return [];
+    return [...products]
+      .sort((a, b) => {
+        const aBs = a.badge === 'Best Seller' ? 1 : 0;
+        const bBs = b.badge === 'Best Seller' ? 1 : 0;
+        if (aBs !== bBs) return bBs - aBs;
+        return (b.reviews || 0) - (a.reviews || 0);
+      })
+      .slice(0, 8);
+  }, [products]);
+
+  // Triple set for completely seamless circular infinite sliding (buffer-left, active, buffer-right)
+  const displayItems = useMemo(() => {
+    if (!items.length) return [];
+    return [
+      ...items.map((p) => ({ ...p, _copy: 0 })),
+      ...items.map((p) => ({ ...p, _copy: 1 })),
+      ...items.map((p) => ({ ...p, _copy: 2 })),
+    ];
+  }, [items]);
+
+  const sliderRef = useRef(null);
+  const currentIndexRef = useRef(items.length);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollStart, setScrollStart] = useState(0);
+  const wrapTimerRef = useRef(null);
+  const resumeTimerRef = useRef(null);
+
+  // Helper to get exact card step width from rendered DOM
+  const getStepWidth = useCallback(() => {
+    const el = sliderRef.current;
+    if (!el || !el.children.length) return 330;
+    const first = el.children[0];
+    const second = el.children[1];
+    return second && first ? second.offsetLeft - first.offsetLeft : (first.offsetWidth + 24);
+  }, []);
+
+  // Smooth or instant slide to a virtual index with silent circular wrap
+  const goToIndex = useCallback(
+    (targetIndex, smooth = true) => {
+      const el = sliderRef.current;
+      if (!el || !items.length) return;
+      const step = getStepWidth();
+
+      currentIndexRef.current = targetIndex;
+      const targetLeft = targetIndex * step;
+
+      el.scrollTo({
+        left: targetLeft,
+        behavior: smooth ? 'smooth' : 'instant',
+      });
+
+      const normalized = ((targetIndex % items.length) + items.length) % items.length;
+      setActiveIndex(normalized);
+
+      // Silent wrap after smooth scroll completes so the user never hits an end
+      if (smooth) {
+        if (wrapTimerRef.current) clearTimeout(wrapTimerRef.current);
+        wrapTimerRef.current = setTimeout(() => {
+          if (!sliderRef.current) return;
+          if (currentIndexRef.current >= items.length * 2) {
+            const wrapped = currentIndexRef.current - items.length;
+            goToIndex(wrapped, false);
+          } else if (currentIndexRef.current < items.length) {
+            const wrapped = currentIndexRef.current + items.length;
+            goToIndex(wrapped, false);
+          }
+        }, 520);
+      }
+    },
+    [getStepWidth, items.length]
+  );
+
+  // Initialize position in middle set
+  useEffect(() => {
+    if (!items.length) return;
+    currentIndexRef.current = items.length;
+    const timer = setTimeout(() => {
+      goToIndex(items.length, false);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [items.length, goToIndex]);
+
+  // Autoplay smooth step every 2 seconds without ever stopping or rewinding
+  useEffect(() => {
+    if (isPaused || isDragging || items.length <= 1) return;
+
+    const interval = setInterval(() => {
+      goToIndex(currentIndexRef.current + 1, true);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isPaused, isDragging, items.length, goToIndex]);
+
+  // Manual next/prev handlers
+  const handleNext = () => {
+    goToIndex(currentIndexRef.current + 1, true);
+  };
+
+  const handlePrev = () => {
+    goToIndex(currentIndexRef.current - 1, true);
+  };
+
+  // Drag-to-scroll support for mouse
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setStartX(e.pageX - (sliderRef.current?.offsetLeft || 0));
+    setScrollStart(sliderRef.current?.scrollLeft || 0);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - (sliderRef.current.offsetLeft || 0);
+    const walk = (x - startX) * 1.35;
+    sliderRef.current.scrollLeft = scrollStart - walk;
+  };
+
+  const handleMouseUpOrLeave = () => {
+    if (!isDragging || !sliderRef.current) return;
+    setIsDragging(false);
+    const step = getStepWidth();
+    const nearest = Math.round(sliderRef.current.scrollLeft / step);
+    goToIndex(nearest, true);
+  };
+
+  // Touch handling for mobile: pause on touch, smooth resume after release
+  const handleTouchStart = () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    setIsPaused(true);
+  };
+
+  const handleTouchEnd = () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      setIsPaused(false);
+      // Snap to nearest card cleanly on touch release
+      if (sliderRef.current) {
+        const step = getStepWidth();
+        const nearest = Math.round(sliderRef.current.scrollLeft / step);
+        goToIndex(nearest, true);
+      }
+    }, 800);
+  };
+
   return (
-    <section className="max-w-[88rem] mx-auto px-4 sm:px-8 pt-24 sm:pt-32">
-      <Reveal>
-        <SectionHead
-          title="Basics, better fitted"
-          sub="Pick a color, pick a size, done. Every piece answers to one question: does it fit right?"
-          action={<Link to="/shop/basics" className="btn btn-glass group">View all <Icon name="right" size={16} className="transition-transform group-hover:translate-x-1" /></Link>}
-        />
-      </Reveal>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {items.map((p, i) => <Reveal key={p.id} delay={i * 90}><ProductCard p={p} /></Reveal>)}
+    <section id="bestsellers" className="relative pt-24 sm:pt-32 overflow-hidden select-none">
+      <div className="max-w-[88rem] mx-auto px-4 sm:px-8 relative z-10">
+        <Reveal>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-muted font-medium mb-1.5">Top Rated Fits</p>
+              <h2 className="font-display text-[clamp(2.4rem,5.5vw,4.2rem)] leading-none font-bold uppercase tracking-tight">
+                Best Sellers
+              </h2>
+              <p className="mt-2.5 text-sm sm:text-base text-muted max-w-xl leading-relaxed">
+                Our most coveted everyday cuts, engineered for flawless drape, heavyweight cotton, and all-day comfort.
+              </p>
+            </div>
+
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handlePrev}
+                aria-label="Previous product"
+                className="icon-btn border border-line glass hover:border-fg/40 hover:scale-105 active:scale-95 transition-all w-11 h-11"
+              >
+                <Icon name="left" size={18} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                aria-label="Next product"
+                className="icon-btn border border-line glass hover:border-fg/40 hover:scale-105 active:scale-95 transition-all w-11 h-11"
+              >
+                <Icon name="right" size={18} />
+              </button>
+
+              <Link to="/shop/all" className="btn btn-primary !py-2.5 !px-4 text-xs group flex items-center gap-1.5 ml-1 shadow-md hover:shadow-lg">
+                <span>View All</span>
+                <Icon name="right" size={14} className="transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+
+      {/* Endless Circular Slider Track */}
+      <div
+        className="relative mt-2"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => {
+          setIsPaused(false);
+          handleMouseUpOrLeave();
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          ref={sliderRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          className={`flex gap-5 sm:gap-6 overflow-x-auto no-scrollbar px-4 sm:px-8 py-4 cursor-grab ${
+            isDragging ? 'cursor-grabbing select-none' : ''
+          }`}
+          style={{ willChange: 'scroll-position' }}
+        >
+          {displayItems.map((p, idx) => (
+            <div
+              key={`${p.id}-c${p._copy}-${idx}`}
+              data-product-card
+              className="shrink-0 w-[80vw] xs:w-[285px] sm:w-[310px] lg:w-[330px] transition-transform duration-300 hover:scale-[1.015]"
+            >
+              <ProductCard p={p} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Circular Dots Indicator */}
+      <div className="max-w-[88rem] mx-auto px-4 sm:px-8 mt-4 flex items-center justify-between gap-4">
+        {/* Seamless Interactive Dots Indicator */}
+        <div className="flex items-center gap-2">
+          {items.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => goToIndex(items.length + idx, true)}
+              aria-label={`Jump to product ${idx + 1}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                idx === activeIndex
+                  ? 'w-7 bg-fg'
+                  : 'w-2 bg-fg/20 hover:bg-fg/40'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Minimalist Live Status */}
+        <div className="flex items-center gap-2 text-xs font-mono text-muted">
+          <span className="w-1.5 h-1.5 rounded-full bg-fg/40 animate-ping" />
+          <span className="text-[12px] text-muted">
+            0{activeIndex + 1} <span className="text-muted/60">/ 0{items.length}</span>
+          </span>
+        </div>
       </div>
     </section>
   );
 }
+
+export const BestSellers = Featured;
 
 /* ───────────── Discount banner (mid-page) ───────────── */
 export function DiscountBanner() {

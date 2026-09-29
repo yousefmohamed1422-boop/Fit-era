@@ -19,24 +19,58 @@ export default function Product({ product: p, related = [] }) {
   const { add, setTint, wish, toggleWish, toast } = useStore();
   const brand = useBrand();
   const categories = useCategories();
-  const [colorId, setColorId] = useState(p.colors[0]);
+  const availableColors = Array.isArray(p?.colors) && p.colors.length > 0 ? p.colors : ['black'];
+  const [colorId, setColorId] = useState(() => availableColors[0]);
+  const [activePhotoUrl, setActivePhotoUrl] = useState(null);
   const [size, setSize] = useState(null);
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const c = colorById(colorId);
-  const cat = categories.find((x) => x.id === p.category);
-  const liked = wish.includes(p.id);
-  const idx = p.colors.indexOf(colorId);
+  const cat = categories.find((x) => x.id === p?.category);
+  const liked = p ? wish.includes(p.id) : false;
+  const idx = availableColors.indexOf(colorId);
 
-  useEffect(() => { setTint(c.tint); }, [colorId]); // eslint-disable-line
-  useEffect(() => { setColorId(p.colors[0]); setSize(null); setQty(1); }, [p.id]); // eslint-disable-line
+  // Normalize all available photos
+  const allImages = Array.isArray(p?.images) && p.images.length > 0
+    ? p.images.map((img, i) => (typeof img === 'string' ? { id: `img-${i}`, url: img, colorId: '' } : img))
+    : (p?.image ? [{ id: 'main', url: p.image, colorId: '' }] : []);
 
-  const item = () => ({ id: p.id, name: p.name, shape: p.shape, hex: c.hex, colorName: c.name, size, price: p.price });
+  const colorImg = p?.colorImages?.[colorId] || allImages.find((x) => x.colorId === colorId)?.url || null;
+  const coverImg = allImages.find((x) => x.isCover)?.url || allImages[0]?.url || p?.image || null;
+  const currentPhoto = activePhotoUrl || colorImg || coverImg;
+
+  useEffect(() => { if (c?.tint) setTint(c.tint); }, [colorId]); // eslint-disable-line
+  useEffect(() => {
+    setColorId(availableColors[0]);
+    setSize(null);
+    setQty(1);
+    setActivePhotoUrl(null);
+  }, [p?.id]); // eslint-disable-line
+
+  useEffect(() => {
+    if (colorImg) {
+      setActivePhotoUrl(colorImg);
+    } else {
+      setActivePhotoUrl(null);
+    }
+  }, [colorId]); // eslint-disable-line
+
+  const item = () => ({
+    id: p.id,
+    name: p.name,
+    shape: p.shape,
+    hex: c.hex,
+    colorName: c.name,
+    size,
+    price: p.price,
+    image: currentPhoto,
+  });
+
   const guard = () => { if (!size) { setErr(true); setTimeout(() => setErr(false), 700); return false; } return true; };
   const addToBag = () => { if (!guard()) return; add(item(), qty); toast(`${p.name} added to your bag`); };
   const buyNow = () => { if (!guard()) return; add(item(), qty, { open: false }); navigate('/checkout'); };
-  const cycle = (d) => setColorId(p.colors[(idx + d + p.colors.length) % p.colors.length]);
+  const cycle = (d) => setColorId(availableColors[(idx + d + availableColors.length) % availableColors.length]);
   const onMove = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     setTilt({ x: ((e.clientX - r.left) / r.width - 0.5) * 12, y: -((e.clientY - r.top) / r.height - 0.5) * 8 });
@@ -62,20 +96,63 @@ export default function Product({ product: p, related = [] }) {
               >{c.name.split(' ').pop()}</span>
               <div className="absolute inset-0 grid place-items-center pb-6" style={{ perspective: 900 }}>
                 <div className="w-[66%] transition-transform duration-300 ease-out" style={{ transform: `rotateY(${tilt.x}deg) rotateX(${tilt.y}deg)` }}>
-                  {p.image ? <img src={p.image} alt={p.name} className="w-full" /> : <Garment shape={p.shape} color={c.hex} className="w-full drop-shadow-[0_30px_36px_rgba(0,0,0,.2)]" title={`${p.name} in ${c.name}`} />}
+                  {currentPhoto ? (
+                    <img key={currentPhoto} src={currentPhoto} alt={`${p.name} - ${c.name}`} className="w-full max-h-[440px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,.15)] transition-all duration-500" />
+                  ) : (
+                    <Garment shape={p.shape} color={c.hex} className="w-full drop-shadow-[0_30px_36px_rgba(0,0,0,.2)]" title={`${p.name} in ${c.name}`} />
+                  )}
                 </div>
               </div>
               <button className="icon-btn !w-11 !h-11 absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--glass-strong)] backdrop-blur border border-[var(--glass-border)]" onClick={() => cycle(-1)} aria-label="Previous color"><Icon name="left" size={18} /></button>
               <button className="icon-btn !w-11 !h-11 absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--glass-strong)] backdrop-blur border border-[var(--glass-border)]" onClick={() => cycle(1)} aria-label="Next color"><Icon name="right" size={18} /></button>
               {p.badge && <span className={`absolute left-5 top-5 rounded-full px-3.5 py-1.5 text-[12px] font-medium ${p.badge === 'Best Seller' ? 'bg-rose text-white' : 'bg-fg text-bg'}`}>{p.badge}</span>}
             </div>
-            <div className="flex items-center justify-center gap-2 mt-5">
+
+            {/* Multiple Photos Thumbnails */}
+            {allImages.length > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 overflow-x-auto py-1">
+                {allImages.map((img, i) => {
+                  const isSelected = currentPhoto === img.url;
+                  const assignedCol = img.colorId ? colorById(img.colorId) : null;
+                  return (
+                    <button
+                      key={img.id || i}
+                      type="button"
+                      onClick={() => {
+                        setActivePhotoUrl(img.url);
+                        if (img.colorId) setColorId(img.colorId);
+                      }}
+                      className={`relative w-14 h-16 rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-1 shrink-0 ${
+                        isSelected ? 'border-fg ring-2 ring-fg scale-105' : 'border-line opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={img.url} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                      {assignedCol && (
+                        <span
+                          className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-black/30 shadow-sm"
+                          style={{ background: assignedCol.hex }}
+                          title={assignedCol.name}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Colors Preview Bar */}
+            <div className="flex items-center justify-center gap-2 mt-4">
               {p.colors.map((id) => {
                 const col = colorById(id);
+                const hasColImg = p.colorImages?.[id] || allImages.find((x) => x.colorId === id)?.url;
                 return (
                   <button key={id} onClick={() => setColorId(id)} aria-label={col.name} aria-pressed={id === colorId}
-                    className={`w-14 h-16 rounded-2xl grid place-items-center overflow-hidden border transition-all duration-400 hover:-translate-y-1 ${id === colorId ? 'border-fg scale-105 bg-[var(--glass-strong)]' : 'border-line bg-[var(--stage)]'}`}>
-                    <Garment shape={p.shape} color={col.hex} className="w-[78%]" label={false} />
+                    className={`w-14 h-16 rounded-2xl grid place-items-center overflow-hidden border transition-all duration-400 hover:-translate-y-1 ${id === colorId ? 'border-fg scale-105 bg-[var(--glass-strong)] ring-1 ring-fg' : 'border-line bg-[var(--stage)]'}`}>
+                    {hasColImg ? (
+                      <img src={hasColImg} alt={col.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Garment shape={p.shape} color={col.hex} className="w-[78%]" label={false} />
+                    )}
                   </button>
                 );
               })}

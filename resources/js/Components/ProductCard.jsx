@@ -8,13 +8,21 @@ import { colorById, money } from '../data/catalog';
 
 export default function ProductCard({ p }) {
   const { add, wish, toggleWish, toast } = useStore();
-  const [colorId, setColorId] = useState(p.colors[0]);
+  const availableColors = Array.isArray(p?.colors) && p.colors.length > 0 ? p.colors : ['black'];
+  const [colorId, setColorId] = useState(availableColors[0]);
   const [picking, setPicking] = useState(false);
   const c = colorById(colorId);
-  const liked = wish.includes(p.id);
+  const liked = p ? wish.includes(p.id) : false;
+
+  // Color-specific image or cover / first image
+  const colorImg = p.colorImages?.[colorId] || (Array.isArray(p.images) ? p.images.find((x) => typeof x === 'object' && x.colorId === colorId)?.url : null);
+  const coverImg = (Array.isArray(p.images) ? (p.images.find((x) => typeof x === 'object' && x.isCover)?.url || (typeof p.images[0] === 'object' ? p.images[0].url : p.images[0])) : null) || p.image || null;
+  const activeImg = colorImg || coverImg;
+
+  const totalPhotos = Array.isArray(p.images) ? p.images.length : (p.image ? 1 : 0);
 
   const addWithSize = (size) => {
-    add({ id: p.id, name: p.name, shape: p.shape, hex: c.hex, colorName: c.name, size, price: p.price });
+    add({ id: p.id, name: p.name, shape: p.shape, hex: c.hex, colorName: c.name, size, price: p.price, image: activeImg });
     setPicking(false);
     toast(`${p.name} (${size}) added to your bag`);
   };
@@ -25,8 +33,8 @@ export default function ProductCard({ p }) {
       <div className="relative aspect-[4/4.6] rounded-[22px] overflow-hidden" style={{ background: 'var(--stage)' }}>
         <div className="absolute inset-0 transition-colors duration-700" style={{ backgroundColor: c.tint, opacity: 0.3 }} />
         <Link to={`/product/${p.slug}`} className="absolute inset-0 grid place-items-center" aria-label={`View ${p.name}`}>
-          {p.image ? (
-            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+          {activeImg ? (
+            <img key={activeImg} src={activeImg} alt={`${p.name} in ${c.name}`} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
           ) : (
             <Garment shape={p.shape} color={c.hex} className="w-[74%] transition-transform duration-700 ease-out group-hover:scale-[1.07] group-hover:-rotate-2" title={`${p.name} in ${c.name}`} />
           )}
@@ -48,6 +56,12 @@ export default function ProductCard({ p }) {
         {p.was && (
           <span className="absolute left-3 bottom-3 rounded-full bg-[var(--glass-strong)] backdrop-blur-md border border-[var(--glass-border)] px-2.5 py-1 text-[11px] font-medium">
             Save {Math.round(((p.was - p.price) / p.was) * 100)}%
+          </span>
+        )}
+
+        {totalPhotos > 1 && (
+          <span className="absolute right-3 bottom-3 rounded-full bg-[var(--glass-strong)] backdrop-blur-md border border-[var(--glass-border)] px-2 py-0.5 text-[10px] font-medium flex items-center gap-1 text-muted">
+            <Icon name="image" size={10} /> {totalPhotos}
           </span>
         )}
       </div>

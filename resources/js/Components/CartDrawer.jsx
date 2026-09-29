@@ -14,19 +14,38 @@ export function CodeBox() {
     return (
       <div className="flex items-center justify-between rounded-2xl bg-rose/20 border border-rose/40 px-4 py-2.5 text-sm pop">
         <span className="flex items-center gap-2"><Icon name="tag" size={15} /> <b className="font-mono tracking-widest">{code.code}</b> · {code.pct}% off</span>
-        <button onClick={removeCode} className="text-[12px] underline underline-offset-2 hover:text-rose">Remove</button>
+        <button type="button" onClick={removeCode} className="text-[12px] underline underline-offset-2 hover:text-rose">Remove</button>
       </div>
     );
   }
-  const submit = (e) => { e.preventDefault(); setMsg(applyCode(v)); };
+  const handleApply = (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    setMsg(applyCode(v));
+  };
   return (
-    <form onSubmit={submit}>
+    <div>
       <div className="flex gap-2">
-        <input className={`field !py-2.5 uppercase ${msg && !msg.ok ? 'err' : ''}`} placeholder="Discount code" value={v} onChange={(e) => { setV(e.target.value); setMsg(null); }} aria-label="Discount code" />
-        <button className="btn btn-glass !py-2.5 !px-5">Apply</button>
+        <input
+          className={`field !py-2.5 uppercase ${msg && !msg.ok ? 'err' : ''}`}
+          placeholder="Discount code"
+          value={v}
+          onChange={(e) => { setV(e.target.value); setMsg(null); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              handleApply(e);
+            }
+          }}
+          aria-label="Discount code"
+        />
+        <button type="button" onClick={handleApply} className="btn btn-glass !py-2.5 !px-5">
+          Apply
+        </button>
       </div>
       {msg && !msg.ok && <p role="alert" className="mt-2 text-[12.5px] text-[#c4534f]">{msg.msg}</p>}
-    </form>
+    </div>
   );
 }
 
@@ -47,7 +66,11 @@ export function Line({ item, compact = false }) {
   return (
     <li className="flex gap-4">
       <div className="w-[4.6rem] h-[5.4rem] shrink-0 rounded-2xl grid place-items-center overflow-hidden border border-line" style={{ background: 'var(--stage)' }}>
-        <Garment shape={item.shape} color={item.hex} className="w-[80%]" label={false} />
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <Garment shape={item.shape} color={item.hex} className="w-[80%]" label={false} />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between gap-3">

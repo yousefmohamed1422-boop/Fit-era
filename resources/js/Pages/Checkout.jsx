@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../Components/Icon';
 import { CodeBox, Line, Totals } from '../Components/CartDrawer';
 import { Link, navigate } from '../lib/router';
 import { useStore } from '../lib/store';
+import { useAuth } from '../lib/auth';
 import { placeOrder } from '../lib/api';
 import { GOVERNORATES, PAYMENT_METHODS } from '../data/catalog';
 
@@ -21,9 +22,29 @@ function Field({ label, hint, error, required, children }) {
 
 export default function Checkout() {
   const { items, totals, code, clear } = useStore();
-  const [f, setF] = useState({ name: '', whatsapp: '', email: '', city: 'Cairo', address: '', notes: '', payment: 'cod' });
+  const { customer } = useAuth();
+  const [f, setF] = useState(() => ({
+    name: customer?.name || '',
+    whatsapp: customer?.phone || '',
+    email: customer?.email || '',
+    city: 'Cairo',
+    address: '',
+    notes: '',
+    payment: 'cod',
+  }));
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (customer) {
+      setF((prev) => ({
+        ...prev,
+        name: prev.name || customer.name || '',
+        whatsapp: prev.whatsapp || customer.phone || '',
+        email: prev.email || customer.email || '',
+      }));
+    }
+  }, [customer]);
   const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); if (errors[k]) setErrors({ ...errors, [k]: null }); };
 
   if (items.length === 0) {
@@ -54,7 +75,7 @@ export default function Checkout() {
       customer: { name: f.name.trim(), whatsapp: f.whatsapp.trim(), email: f.email.trim() || null },
       shipping: { city: f.city, address: f.address.trim(), notes: f.notes.trim() },
       payment: f.payment, code: code?.code || null,
-      items: items.map((i) => ({ id: i.id, name: i.name, colorName: i.colorName, size: i.size, qty: i.qty, price: i.price })),
+      items: items.map((i) => ({ id: i.id, name: i.name, colorName: i.colorName, size: i.size, qty: i.qty, price: i.price, hex: i.hex, shape: i.shape, image: i.image || null })),
       total: totals.total,
     });
     clear();

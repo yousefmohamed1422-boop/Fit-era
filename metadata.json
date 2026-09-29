@@ -1,0 +1,6 @@
+{
+  "name": "FIT ERA",
+  "description": "Storefront for FIT ERA everyday streetwear and apparel",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

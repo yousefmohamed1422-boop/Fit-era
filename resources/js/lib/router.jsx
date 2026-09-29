@@ -9,40 +9,87 @@ import { useEffect, useState } from 'react';
  *   /order/{number}  → OrderDone      /track/{number?}  → Track
  */
 
-export function parseRoute(hash) {
-  const path = (hash || '').replace(/^#/, '') || '/';
-  const [a, b, c] = path.split('/').filter(Boolean);
+export function getActivePath() {
+  if (typeof window === 'undefined') return '/';
+  
+  // 1. If hash has a non-empty route (e.g. #/admin, #admin, #/shop/hoodies)
+  const rawHash = window.location.hash || '';
+  const hashClean = rawHash.replace(/^#\/?/, '').trim();
+  if (hashClean) {
+    return '/' + hashClean;
+  }
+
+  // 2. Check window.location.pathname (e.g. /admin or /admin/products)
+  const pathname = window.location.pathname || '/';
+  if (pathname && pathname !== '/') {
+    return pathname;
+  }
+
+  return '/';
+}
+
+export function parseRoute(raw) {
+  const rawStr = typeof raw === 'string' ? raw : getActivePath();
+  const path = (rawStr || '/').replace(/^#\/?/, '').replace(/^\//, '');
+  const [a, b, c] = path.split('/');
   switch (a) {
-    case 'shop': return { name: 'shop', category: b || 'all', key: path };
-    case 'product': return { name: 'product', slug: b, key: path };
-    case 'checkout': return { name: 'checkout', key: path };
-    case 'order': return { name: 'order', number: b, key: path };
-    case 'track': return { name: 'track', number: b, key: path };
-    case 'admin': return { name: 'admin', sub: b || 'overview', id: c, key: path };
+    case 'admin': return { name: 'admin', sub: b || 'overview', id: c, key: '/' + path };
+    case 'account': return { name: 'account', tab: b, key: '/' + path };
+    case 'login': return { name: 'admin', sub: 'overview', key: '/' + path };
+    case 'shop': return { name: 'shop', category: b || 'all', key: '/' + path };
+    case 'product': return { name: 'product', slug: b, key: '/' + path };
+    case 'checkout': return { name: 'checkout', key: '/' + path };
+    case 'order': return { name: 'order', number: b, key: '/' + path };
+    case 'track': return { name: 'track', number: b, key: '/' + path };
     default: return { name: 'home', key: '/' };
   }
 }
 
 export function useRoute() {
-  const [route, setRoute] = useState(() => parseRoute(window.location.hash));
+  const [route, setRoute] = useState(() => parseRoute(getActivePath()));
   useEffect(() => {
-    const on = () => setRoute(parseRoute(window.location.hash));
+    const on = () => setRoute(parseRoute(getActivePath()));
     window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    window.addEventListener('popstate', on);
+    return () => {
+      window.removeEventListener('hashchange', on);
+      window.removeEventListener('popstate', on);
+    };
   }, []);
   return route;
 }
 
-export const navigate = (to) => { window.location.hash = to; };
+export const navigate = (to) => {
+  const target = to.startsWith('/') ? to : `/${to}`;
+  // If running inside Laravel + Inertia environment
+  if (typeof window !== 'undefined' && window.__inertia_router?.visit) {
+    window.__inertia_router.visit(target);
+    return;
+  }
+  try {
+    window.history.pushState(null, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  } catch {
+    window.location.hash = target;
+  }
+};
 
-export function Link({ to, children, ...rest }) {
-  return <a href={`#${to}`} {...rest}>{children}</a>;
+export function Link({ to, children, onClick, ...rest }) {
+  const target = to.startsWith('/') ? to : `/${to}`;
+  const handleClick = (e) => {
+    if (onClick) onClick(e);
+    if (!e.defaultPrevented && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+      e.preventDefault();
+      navigate(target);
+    }
+  };
+  return <a href={target} onClick={handleClick} {...rest}>{children}</a>;
 }
 
 /** Scroll to a section of the home page (navigates home first when needed). */
 export function goSection(id) {
   const scroll = () => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const onHome = parseRoute(window.location.hash).name === 'home';
+  const onHome = parseRoute(getActivePath()).name === 'home';
   if (onHome) return scroll();
   navigate('/');
   setTimeout(scroll, 450);

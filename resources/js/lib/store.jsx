@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useBrand, getDiscounts } from './db';
+import { BRAND, DISCOUNT_CODES } from '../data/catalog';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -10,7 +10,6 @@ const storage = {
 };
 
 export function StoreProvider({ children }) {
-  const brand = useBrand();
   /* ── theme ── */
   const [theme, setTheme] = useState(() =>
     storage.get('fe-theme', null) ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
@@ -74,11 +73,15 @@ export function StoreProvider({ children }) {
 
   const applyCode = useCallback((raw) => {
     const c = (raw || '').trim().toUpperCase();
-    const table = getDiscounts();
     if (!c) return { ok: false, msg: 'Enter a code first.' };
-    if (!table[c]) return { ok: false, msg: 'That code isn’t valid.' };
-    setCode({ code: c, pct: table[c] });
-    return { ok: true, msg: `${table[c]}% off applied.` };
+    let pct = DISCOUNT_CODES[c];
+    try {
+      const stored = JSON.parse(window.localStorage.getItem('fe-discounts'));
+      if (stored && stored[c]) pct = Number(stored[c]);
+    } catch {}
+    if (!pct) return { ok: false, msg: 'That code isn’t valid.' };
+    setCode({ code: c, pct });
+    return { ok: true, msg: `${pct}% off applied.` };
   }, []);
   const removeCode = useCallback(() => setCode(null), []);
 
@@ -87,9 +90,16 @@ export function StoreProvider({ children }) {
     const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
     const discount = code ? Math.round((subtotal * code.pct) / 100) : 0;
     const after = subtotal - discount;
-    const shipping = items.length === 0 || after >= brand.freeShippingOver ? 0 : brand.shippingFee;
+    let freeShippingOver = BRAND.freeShippingOver;
+    let shippingFee = BRAND.shippingFee;
+    try {
+      const b = JSON.parse(window.localStorage.getItem('fe-brand'));
+      if (b && typeof b.freeShippingOver === 'number') freeShippingOver = b.freeShippingOver;
+      if (b && typeof b.shippingFee === 'number') shippingFee = b.shippingFee;
+    } catch {}
+    const shipping = items.length === 0 || after >= freeShippingOver ? 0 : shippingFee;
     return { count, subtotal, discount, shipping, total: after + shipping, after };
-  }, [items, code, brand]);
+  }, [items, code]);
 
   const value = {
     theme, toggleTheme, tint, setTint, toast, toastMsg,

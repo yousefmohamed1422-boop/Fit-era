@@ -10,7 +10,8 @@ export default function Shop({ products, category = 'all' }) {
   const { setTint } = useStore();
   const categories = useCategories();
   const cat = categories.find((c) => c.id === category);
-  const list = category === 'all' ? products : products.filter((p) => p.category === category);
+  const productList = Array.isArray(products) ? products : [];
+  const list = category === 'all' ? productList : productList.filter((p) => p.category === category);
   useEffect(() => { if (cat) setTint(colorById(cat.color).tint); }, [category]); // eslint-disable-line
 
   return (

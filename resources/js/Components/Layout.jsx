@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import Header from './Header';
 import CartDrawer from './CartDrawer';
+import AuthModal from './AuthModal';
+import CustomerAccountModal from './CustomerAccountModal';
 import Icon from './Icon';
 import { Footer } from './Sections';
 import { useStore } from '../lib/store';
+import { useAuth } from '../lib/auth';
 import { BRAND } from '../data/catalog';
 
 function Ambient() {
@@ -33,11 +36,19 @@ function Toast() {
 export default function Layout({ route, children }) {
   const first = useRef(true);
   const { setCartOpen } = useStore();
+  const { openLogin, setAccountModalOpen } = useAuth();
+
   useEffect(() => {
     setCartOpen(false);
-    if (first.current) { first.current = false; return; }
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [route.key]); // eslint-disable-line
+    if (first.current) { first.current = false; }
+    else { window.scrollTo({ top: 0, behavior: 'instant' }); }
+
+    if (route.name === 'login') {
+      openLogin();
+    } else if (route.name === 'account') {
+      setAccountModalOpen(true);
+    }
+  }, [route.key, route.name]); // eslint-disable-line
 
   return (
     <div className="min-h-screen">
@@ -46,6 +57,8 @@ export default function Layout({ route, children }) {
       <main key={route.key} className="page-enter">{children}</main>
       <Footer />
       <CartDrawer />
+      <AuthModal />
+      <CustomerAccountModal />
       <Toast />
       <a
         href={`https://wa.me/${BRAND.whatsapp}`} target="_blank" rel="noreferrer" aria-label="Chat with us on WhatsApp"
